@@ -134,14 +134,38 @@ bash boot/repack_initramfs.sh initramfs_patched.uimg boot/initramfs_new.uimg
 ### B-3. 書き戻して再起動
 
 ```sh
-# 必ずバックアップを取る
-$ADB shell "cp /mnt/media_rw/sda1/initramfs_patched.uimg \
-                /mnt/media_rw/sda1/initramfs_patched.uimg.bak"
+# 必ずバックアップを取る（USB メディアは 3 ファイルとも退避しておく）
+$ADB shell "cd /mnt/media_rw/sda1 && \
+    cp initramfs_patched.uimg initramfs_patched.uimg.bak && \
+    cp bootargs.bin bootargs.bin.bak && \
+    cp root_rsa_pub_crc.bin root_rsa_pub_crc.bin.bak && sync"
 
 $ADB push boot/initramfs_new.uimg /mnt/media_rw/sda1/initramfs_patched.uimg
 $ADB shell sync
+
+# 書けたバイト列が一致するか必ず確認する
+$ADB pull /mnt/media_rw/sda1/initramfs_patched.uimg /tmp/readback.uimg
+cmp boot/initramfs_new.uimg /tmp/readback.uimg && echo "readback OK"
+
 $ADB reboot
 ```
+
+> **リモートだけで作業しているなら、先にキルスイッチを置いてから再起動すること。**
+> ブート時に mirakc を起動させず、素の状態で上がってくることを先に確認できる。
+>
+> ```sh
+> $ADB shell "touch /data/local/tmp/mirakc.disabled"   # ← 再起動前に置く
+> $ADB reboot
+> # 起動を確認してから
+> $ADB shell "rm -f /data/local/tmp/mirakc.disabled"
+> $ADB shell "start mirakc"
+> ```
+>
+> `/data/local/tmp/mirakc.disabled` があると `start_mirakc.sh` は
+> **何もせずに終了する**（Android TV も止めないし、プロセスも殺さない）。
+> `/data` にあるので再起動しても残る。
+> これが無いと「ブート時に自動起動する設定」を止める手段が
+> initramfs の焼き直ししか無くなり、失敗時に詰む。
 
 ### B-4. 確認
 

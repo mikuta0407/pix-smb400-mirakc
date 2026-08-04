@@ -11,6 +11,22 @@ MIRAKC=/data/local/tmp/mirakc
 LOG=/data/local/tmp/mirakc.log
 PIDFILE=/data/local/tmp/mirakc-start.pid
 
+# --- Kill switch --------------------------------------------------------------
+# Autostart is baked into the initramfs (init.pixboot.rc), so without this there
+# would be no way to stop mirakc from coming up at boot short of reflashing the
+# USB medium — which needs physical access to recover if it goes wrong.
+# This file lives in /data, survives reboots, and can be created over ADB:
+#
+#     adb shell "touch /data/local/tmp/mirakc.disabled"     # stop autostarting
+#     adb shell "rm -f /data/local/tmp/mirakc.disabled"     # start again
+#
+# Checked before anything else, so a disabled device is left completely alone
+# (Android TV is not stopped, no processes are killed).
+if [ -e /data/local/tmp/mirakc.disabled ]; then
+    echo "[mirakc] /data/local/tmp/mirakc.disabled exists — not starting." >> "$LOG"
+    exit 0
+fi
+
 # --- Preflight: start only if everything is present. -------------------------
 # If anything is missing we exit WITHOUT stopping Android TV, so a
 # not-yet-provisioned device is left completely untouched.

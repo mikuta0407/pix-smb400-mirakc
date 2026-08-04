@@ -19,9 +19,17 @@
 POLL=${POLL:-20}
 LOG=${LOG:-/data/local/tmp/mirakc.log}
 
-# Basenames only.  `mirakc` itself is excluded on purpose: it is started by
-# start_mirakc.sh and would look orphaned if that script ever exits first.
-TARGETS="tunertest tunertest_oem tuner-stream-ng tuner-stream-bs tuner-stream-bs-ng b61dec b21dec dantto4k"
+# Basenames only, matched against /proc/<pid>/comm (max 15 chars, so
+# "tuner-stream-bs-ng" is seen as "tuner-stream-bs" — still a target).
+#
+# `mirakc` is excluded on purpose: it is started by start_mirakc.sh and would
+# look orphaned if that script ever exits first.
+#
+# `tunertest_oem` is excluded too.  The OEM `pix_airtuner` init service can own
+# a process of that name, and an init service legitimately has PPID 1 — reaping
+# it would make init respawn it and we would fight in a loop.  stop_android_tv.sh
+# already stops that service properly with `stop pix_airtuner`.
+TARGETS="tunertest tuner-stream-ng tuner-stream-bs tuner-stream-bs-ng b61dec b21dec dantto4k"
 
 trap '' TERM INT
 

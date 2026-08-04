@@ -1,7 +1,11 @@
 # pix-smb400-mirakc
 
-PIX-SMB400（HiSilicon Hi3798CV200 / Android TV / root 化済み）を
-**mirakc** のチューナーサーバーにする一式。地上波・BS(2K)・**BS4K** に対応する。
+PIX-SMB400 / Panasonic TU-BUHD100（HiSilicon Hi3798CV200 / Android TV /
+root 化済み）を **mirakc** のチューナーサーバーにする一式。
+地上波・BS(2K)・**BS4K** に対応する。
+
+> 動作確認は **TU-BUHD100 実機**で行った。両機種の差はブート部分だけで、
+> チューナー制御と mirakc 層は共通。→ [VARIANTS.md](./VARIANTS.md)
 
 [pix-smb400-mirakurun](https://github.com/tsuyopon123/pix-smb400-mirakurun) の派生。
 root 化・チューナー制御はそのまま使い、**Mirakurun（Alpine chroot + Node.js）を
@@ -173,6 +177,15 @@ echo 2 > /proc/cpu/alignment   # 2 = カーネルがソフトウェアで肩代�
   `config.yml` の `jobs.*.schedule` は視聴しない時間帯に寄せること
 - **自動再起動はしない。** init サービスは `oneshot`、`start_mirakc.sh` にも
   再起動ループは無い。このデバイスはクラッシュループで文鎮化した実績があるため
+- **キルスイッチ。** ブート時の自動起動を止めたいときは
+  `/data/local/tmp/mirakc.disabled` を置く。`start_mirakc.sh` は
+  他に何もせず終了する（Android TV も止めない）。`/data` にあるので再起動しても残り、
+  **initramfs を焼き直さずに autostart を無効化できる唯一の手段**
+
+  ```sh
+  adb shell "touch /data/local/tmp/mirakc.disabled"   # 無効化
+  adb shell "rm -f /data/local/tmp/mirakc.disabled"   # 再有効化
+  ```
 - **`crash_guard.sh` は mirakc を kill しない**（メモリ下限ブランチは
   Node.js 向けのまま）。ブリック防止の本体である crash_dump32 フォークボム検知は
   プロセス非依存なので効く

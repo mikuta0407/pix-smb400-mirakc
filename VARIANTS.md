@@ -5,8 +5,7 @@ Hi3798CV200 のこの基板は複数のブランドで売られていて、**ブ
 
 | | PIX-SMB400 系 | TU-BUHD100 |
 |---|---|---|
-| 製品名 | PIX-SMB400 / Panasonic POE-SMB400-PS1 | Panasonic TU-BUHD100 |
-| `ro.product.model` | `POE-SMB400-PS1` など | `TU-BUHD100` |
+| 製品名 | PIXELA PIX-SMB400 | Panasonic TU-BUHD100（PIXELA 製造の OEM） |
 | Ethernet PHY (`phy_addr`) | `2,1` | **`2,3`** |
 | `persist.sys.usb.config` | `adb`（→ 下記） | **`adb`** |
 | kernel.img | 機種の公式ファームから抽出 | 機種の公式ファームから抽出 |
@@ -15,6 +14,49 @@ Hi3798CV200 のこの基板は複数のブランドで売られていて、**ブ
 TU-BUHD100 のブート対応は
 [SomeDena786/Uboot-TU-BUHD100](https://github.com/SomeDena786/Uboot-TU-BUHD100)
 が調べたもの。ここでの扱いはその情報に基づく。
+
+---
+
+## 0. ⚠️ `getprop` では機種を判別できない
+
+**TU-BUHD100 実機の `getprop` は `POE-SMB400-PS1` と答える。**
+中身が PIXELA 製なので、firmware の型番文字列は retail の製品名と一致しない。
+
+```
+[ro.product.model]:  [POE-SMB400-PS1]          ← TU-BUHD100 でもこう出る
+[pix.hw.boardname]:  [PIX-SMB400]              ← 基板名。これも同じ
+[ro.product.brand]:  [Panasonic]
+[ro.product.manufacturer]: [PIXELA CORPORATION]
+[vendor.jp.pixela.product.destination]: [Panasonic]   ← Panasonic 向けである手がかり
+[ro.build.product]:  [kadoma]
+```
+
+### 確実な判別方法: `bootargs.bin` の `phy_addr` を読む
+
+既に USB ブートで動いている個体なら、これが決定的。
+
+```sh
+adb pull /mnt/media_rw/sda1/bootargs.bin .
+python3 - bootargs.bin <<'PY'
+import sys, struct, binascii
+d = open(sys.argv[1], 'rb').read()
+crc  = struct.unpack_from('<I', d, 0)[0]
+calc = binascii.crc32(d[4:]) & 0xFFFFFFFF
+print(f"CRC32 stored=0x{crc:08x} computed=0x{calc:08x} "
+      f"{'OK' if crc == calc else 'MISMATCH'}")
+for line in d[4:].split(b'\x00\x00')[0].decode('ascii', 'replace').split('\x00'):
+    if line.startswith('phy_addr'):
+        print(" ", line)
+PY
+```
+
+```
+phy_addr=2,1  → PIX-SMB400
+phy_addr=2,3  → TU-BUHD100
+```
+
+実測（TU-BUHD100 実機）: `phy_addr=2,3` / CRC32 `0x5d86759b`。
+この CRC は `make_usb_boot.py --variant TU-BUHD100` が生成する値と一致する。
 
 ---
 
