@@ -27,6 +27,24 @@ if [ -e /data/local/tmp/mirakc.disabled ]; then
     exit 0
 fi
 
+# --- Let Android settle before touching anything -----------------------------
+# init fires this service on `sys.boot_completed`, but Android is still starting
+# services and apps at that point.  Running stop_android_tv.sh (which force-stops
+# dozens of packages) and grabbing the tuner right then reboot-looped the device
+# at the kernel level — /proc/uptime went backwards, so it was a panic or the
+# hardware watchdog, not an Android soft restart.
+#
+# Every component was verified stable when the same stack is started by hand a
+# few minutes after boot, so the race with the tail of the boot sequence is what
+# matters, not any single component.
+#
+# Only applies when init started us; a manual run should not wait.
+if [ -n "$MIRAKC_FROM_INIT" ]; then
+    delay=${MIRAKC_BOOT_DELAY:-120}
+    echo "[mirakc] started by init — waiting ${delay}s for Android to settle" >> "$LOG"
+    sleep "$delay"
+fi
+
 # --- Preflight: start only if everything is present. -------------------------
 # If anything is missing we exit WITHOUT stopping Android TV, so a
 # not-yet-provisioned device is left completely untouched.
