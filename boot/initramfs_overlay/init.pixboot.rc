@@ -1,0 +1,65 @@
+# PIX-SMB400 USB Boot configuration
+# init.pixboot.rc: imported before init.bigfish.rc so PIXBOOT services take precedence
+
+on early-init
+    setprop ro.pixboot.version 14
+    # Start adbd early for TCP ADB (port configured via service.adb.tcp.port=5555 in init.rc)
+    start adbd
+
+# logd fails with EPERM on capset() on this kernel — stop it whenever it runs or tries to restart
+on property:init.svc.logd=running
+    stop logd
+
+on property:init.svc.logd=restarting
+    stop logd
+
+on post-fs-data
+    # Deploy scripts from initramfs — always overwrites /data with the latest version.
+    # NOTE: anything listed here is restored on EVERY boot, so editing these files
+    # over ADB is temporary.  Rebuild the initramfs to make a change permanent.
+    copy /start_mirakc.sh    /data/local/tmp/start_mirakc.sh
+    chmod 0755 /data/local/tmp/start_mirakc.sh
+    copy /tuner_reaper.sh    /data/local/tmp/tuner_reaper.sh
+    chmod 0755 /data/local/tmp/tuner_reaper.sh
+    copy /crash_guard.sh     /data/local/tmp/crash_guard.sh
+    chmod 0755 /data/local/tmp/crash_guard.sh
+    copy /stop_android_tv.sh /data/local/tmp/stop_android_tv.sh
+    chmod 0755 /data/local/tmp/stop_android_tv.sh
+    copy /smb400_tuner.sh    /data/local/tmp/smb400-tuner.sh
+    chmod 0755 /data/local/tmp/smb400-tuner.sh
+
+on boot
+    # Start Ethernet DHCP setup (delayed for PHY init)
+    start pix-netdbg
+
+service pix-netdbg /init_pix_netdbg.sh
+    class main
+    user root
+    group root
+    oneshot
+    seclabel u:r:init:s0
+
+on property:ro.debuggable=1
+    stop console
+    start rootconsole
+
+service rootconsole /system/bin/sh
+    class core
+    console
+    disabled
+    user root
+    group root
+    seclabel u:r:su:s0
+
+on property:sys.boot_completed=1
+    start mirakc
+
+# oneshot: mirakc is deliberately NOT restarted if it exits.  On this box a
+# crash-looping decoder can spawn a crash_dump32 fork bomb and brick the device.
+service mirakc /system/bin/sh /data/local/tmp/start_mirakc.sh
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:su:s0
+    setenv MIRAKC_FROM_INIT 1

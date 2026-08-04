@@ -1,0 +1,57 @@
+PIX-SMB400 BS4K mirakc setup
+Copyright 2026 mikuta0407
+
+This product includes software developed as part of
+
+    PIX-SMB400 BS4K Mirakurun setup
+    Copyright 2026 tsuyopon123
+    https://github.com/tsuyopon123/pix-smb400-mirakurun
+    Licensed under the Apache License, Version 2.0
+
+This repository is a derivative work of the above.  It keeps the USB-boot /
+rooting tooling (boot/), the tuner and descrambler sources (src/, include/) and
+the Android housekeeping scripts (scripts/crash_guard.sh,
+scripts/stop_android_tv.sh, scripts/smb400-tuner.sh) essentially unchanged, and
+replaces the Mirakurun-BS4K layer (Alpine chroot + Node.js) with mirakc.
+
+Changes made to the derived files:
+
+  * scripts/smb400-tuner.sh
+    GR path: pass portId as decimal 32 instead of "0x20".  tuner-stream-ng
+    parses the argument with atoi(), so "0x20" evaluated to 0 and
+    DMX_AttachTSPort(dmx=0, port=0) failed with 0x80150002, which broke ISDB-T
+    reception entirely.
+
+  * boot/initramfs_overlay/init.pixboot.rc
+    The `mirakurun_proxy` service is replaced by a `mirakc` service that runs
+    /data/local/tmp/start_mirakc.sh.  The Alpine rootfs mkdir lines are removed
+    (no chroot is used).  tuner_reaper.sh is added to the post-fs-data copies.
+
+  * boot/build_initramfs.sh
+    Overlay file list updated to match the above.
+
+Removed from the original because they are Mirakurun-specific:
+scripts/setup_proot.sh, scripts/start_mirakurun.sh,
+patches/node-rs-crc32-index.js, config/{server,tuners,channels}.yml.
+
+---
+
+Third-party binaries redistributed in bin/:
+
+  * mirakc — https://github.com/mirakc/mirakc (MIT)
+    Built from a fork with per-channel-type filter/job overrides
+    (`filters.for-channel-types`), required for the BS4K remux.
+
+  * mirakc-arib — https://github.com/mirakc/mirakc-arib (MIT / see project)
+    Taken from the official mirakc/tools:alpine armv7 image.
+
+  * dantto4k — https://github.com/nekohkr/dantto4k
+    Built for armv7 with the portability patch in tools/dantto4k/.
+    Links TSDuck (https://tsduck.io/, BSD-2-Clause).
+    The ACAS/AES-NI path is stubbed out in this build; it must be run with
+    --frontend-descrambled.
+
+  * tuner-stream-*, b21dec, b61dec — built from src/ in this repository
+    (Apache-2.0, from pix-smb400-mirakurun).
+
+See each upstream project for its full license text.

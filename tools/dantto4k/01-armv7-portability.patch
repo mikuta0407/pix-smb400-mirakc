@@ -1,0 +1,85 @@
+diff --git a/Makefile b/Makefile
+index 4819893..5aa51ec 100644
+--- a/Makefile
++++ b/Makefile
+@@ -13,8 +13,17 @@ TSDUCK_LIB = $(shell pkg-config --libs tsduck)
+ PCSC_INC = $(shell pkg-config --cflags-only-I libpcsclite)
+ PCSC_LIB = $(shell pkg-config --libs libpcsclite)
+ 
++# -maes/-msse4.1 only exist on x86. On other architectures aesCtrCipher.h falls
++# back to a stub, so the remux path (--frontend-descrambled) still builds.
++ARCH := $(shell uname -m)
++ifneq (,$(filter $(ARCH),x86_64 amd64 i386 i486 i586 i686))
++    CXXFLAGS_ARCH = -maes -msse4.1
++else
++    CXXFLAGS_ARCH =
++endif
++
+ CXX = g++
+-CXXFLAGS = -std=c++20 -Wall -maes -msse4.1 $(TSDUCK_INC) $(PCSC_INC) -Ithirdparty/asio/asio/include
++CXXFLAGS = -std=c++20 -Wall $(CXXFLAGS_ARCH) $(TSDUCK_INC) $(PCSC_INC) -Ithirdparty/asio/asio/include
+ LDFLAGS = $(TSDUCK_LIB) $(PCSC_LIB)
+ 
+ EXEC = $(OBJ_DIR)/$(PROJECT_NAME)
+diff --git a/src/aesCtrCipher.h b/src/aesCtrCipher.h
+index b154674..a4458eb 100644
+--- a/src/aesCtrCipher.h
++++ b/src/aesCtrCipher.h
+@@ -2,9 +2,16 @@
+ #include <array>
+ #include <vector>
+ #include <cstdint>
++#include <cstring>
++#include <stdexcept>
++
++#if defined(_M_X64) || defined(_M_IX86) || defined(__x86_64__) || defined(__i386__)
++#define DANTTO4K_HAS_AESNI 1
++#endif
++
++#ifdef DANTTO4K_HAS_AESNI
+ #include <immintrin.h>
+ #include <tmmintrin.h>
+-#include <stdexcept>
+ #if defined(_MSC_VER)
+ #include <intrin.h>
+ #else
+@@ -197,3 +204,39 @@ private:
+     std::array<uint8_t, 16> iv;
+     __m128i roundKeys[11];
+ };
++
++#else // !DANTTO4K_HAS_AESNI
++
++// AES-NI is an x86 instruction set, so ACAS descrambling cannot run on other
++// architectures. The class is still defined so that AcasHandler compiles: with
++// --frontend-descrambled the demuxer never builds an AcasHandler, so nothing
++// here is ever reached. Any other mode fails loudly instead of silently
++// producing garbage.
++class AESCtrCipher {
++public:
++    AESCtrCipher() = default;
++
++    void setKey(const std::array<uint8_t, 16>&) {
++        throw std::runtime_error("AES-NI is not available on this architecture; "
++                                 "only --frontend-descrambled is supported");
++    }
++
++    static bool hasAESNI() { return false; }
++
++    void setIv(std::array<uint8_t, 16> newIv) { iv = newIv; }
++
++    void encrypt(uint8_t*, size_t, uint8_t*) const {
++        throw std::runtime_error("AES-NI is not available on this architecture; "
++                                 "only --frontend-descrambled is supported");
++    }
++
++    void decrypt(uint8_t* src, size_t size, uint8_t* dst) const {
++        encrypt(src, size, dst);
++    }
++
++private:
++    std::array<uint8_t, 16> key{};
++    std::array<uint8_t, 16> iv{};
++};
++
++#endif // DANTTO4K_HAS_AESNI
