@@ -35,6 +35,15 @@ mirakc に置き換えて**ある。→ [NOTICE](./NOTICE)
 
 ---
 
+## ドキュメント
+
+| | |
+|---|---|
+| [BOOT.md](./BOOT.md) | USB ブート・root 化・initramfs のビルド |
+| [VARIANTS.md](./VARIANTS.md) | **機種差（PIX-SMB400 / TU-BUHD100）。**`phy_addr` と `default.prop` |
+| [MIGRATION.md](./MIGRATION.md) | **Mirakurun 版からの移行**と切り戻し |
+| [tools/dantto4k/README.md](./tools/dantto4k/README.md) | dantto4k の armv7 ビルド再現 |
+
 ## 構成
 
 ```
@@ -44,6 +53,9 @@ scripts/      デバイス上で動くシェルスクリプト
 src/          チューナー／デスクランブラの C ソース
 include/      b61dec のビルドに要る OpenSSL ヘッダ
 boot/         USB ブート・root 化・initramfs 一式（→ BOOT.md）
+  build_initramfs.sh   kernel.img から初回構築する
+  repack_initramfs.sh  既に動いている .uimg にオーバーレイを当て直す
+  make_usb_boot.py     bootargs.bin / root_rsa_pub_crc.bin（機種差あり）
 tools/dantto4k/  dantto4k を armv7 でビルドし直すための手順とパッチ
 Makefile      デプロイと運用
 ```
@@ -67,15 +79,22 @@ BS4K だけ `filters.for-channel-types.BS4K.tuner-filter` に dantto4k を挟む
 
 ## セットアップ
 
+> **既に Mirakurun 版で動いている筐体を切り替える場合は
+> [MIGRATION.md](./MIGRATION.md) を見ること。**以下は素の筐体からの構築。
+
 ### 1. root 化と USB ブート
 
 [BOOT.md](./BOOT.md) の手順で USB ブートイメージを作り、デバイスを起動する。
-ここは元リポジトリと同じ。
+ここは元リポジトリとほぼ同じ。
 
 ```sh
 bash boot/build_initramfs.sh <firmware_cpio>
-python3 boot/make_usb_boot.py
+python3 boot/make_usb_boot.py                        # PIX-SMB400 系
+python3 boot/make_usb_boot.py --variant TU-BUHD100   # TU-BUHD100
 ```
+
+**`--variant` を間違えると Ethernet PHY のアドレスが合わずネットワークが
+上がらない**（＝ ADB も来ない）。→ [VARIANTS.md](./VARIANTS.md)
 
 `boot/initramfs_overlay/` の中身が initramfs に焼き込まれ、
 **毎ブート `/data/local/tmp/` にコピーされる**（`init.pixboot.rc` の

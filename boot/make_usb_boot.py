@@ -1,7 +1,25 @@
 #!/usr/bin/env python3
 """
-PIX-SMB400 USB Boot Bootargs Injection Tool
+PIX-SMB400 / TU-BUHD100 USB Boot Bootargs Injection Tool
 Creates root_rsa_pub_crc.bin and bootargs.bin for USB boot pin bypass
+
+Device variants
+---------------
+The Hi3798CV200 board is sold under several brands and the Ethernet PHY is not
+wired the same way on all of them.  `phy_addr` must match the board or the
+device boots without networking (and therefore without ADB over TCP).
+
+    SMB400      phy_addr=2,1   PIX-SMB400 / Panasonic POE-SMB400-PS1
+    TU-BUHD100  phy_addr=2,3   Panasonic TU-BUHD100
+                               (per https://github.com/SomeDena786/Uboot-TU-BUHD100)
+
+Select with either:
+
+    python3 make_usb_boot.py --variant TU-BUHD100
+    VARIANT=TU-BUHD100 python3 make_usb_boot.py
+
+Default is SMB400.  Everything else (RSA key handling, CRC layout) is identical
+between the variants.
 
 bootargs.bin format (raw u-boot env block):
   [0:4]    = CRC32 of remaining data (little-endian)
@@ -15,6 +33,7 @@ root_rsa_pub_crc.bin format:
   [260:264] = CRC32 of [0:260] (little-endian)
 """
 
+import re
 import struct
 import hashlib
 import binascii
@@ -26,6 +45,29 @@ from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256
 
 BOOTARGS_TOTAL_SIZE = 65536  # 64KB (matches bootargs partition size)
+
+# Board-specific Ethernet PHY address.  See the module docstring.
+PHY_ADDR_BY_VARIANT = {
+    "SMB400":     "2,1",
+    "TU-BUHD100": "2,3",
+}
+
+
+def resolve_variant(argv=None):
+    """Pick the board variant from --variant / $VARIANT, defaulting to SMB400."""
+    argv = sys.argv[1:] if argv is None else argv
+    variant = os.environ.get("VARIANT", "SMB400")
+    for i, a in enumerate(argv):
+        if a == "--variant" and i + 1 < len(argv):
+            variant = argv[i + 1]
+        elif a.startswith("--variant="):
+            variant = a.split("=", 1)[1]
+    if variant not in PHY_ADDR_BY_VARIANT:
+        sys.exit(
+            f"[!] unknown variant {variant!r}; "
+            f"choose one of {', '.join(sorted(PHY_ADDR_BY_VARIANT))}"
+        )
+    return variant
 
 
 # Bootargs payload content (u-boot env format)
@@ -80,7 +122,7 @@ def make_uboot_env_block(env_str, block_size):
     return bytes(raw)
 
 
-def make_bootargs_bin(rsa_key=None, total_size=BOOTARGS_TOTAL_SIZE):
+def make_bootargs_bin(rsa_key=None, total_size=BOOTARGS_TOTAL_SIZE, variant="SMB400"):
     """Create bootargs.bin as raw u-boot env block (no ADVCA header).
 
     The Hisilicon bootloader reads bootargs.bin as a raw u-boot environment
@@ -88,7 +130,11 @@ def make_bootargs_bin(rsa_key=None, total_size=BOOTARGS_TOTAL_SIZE):
     No ADVCA signature header is needed — the bootloader only checks the
     internal CRC32, not an RSA signature.
     """
-    env_block = make_uboot_env_block(BOOTARGS_ENV, total_size)
+    env = BOOTARGS_ENV
+    phy = PHY_ADDR_BY_VARIANT[variant]
+    env, n = re.subn(r'^phy_addr=.*$', f'phy_addr={phy}', env, flags=re.M)
+    assert n == 1, f"phy_addr line not found in BOOTARGS_ENV (n={n})"
+    env_block = make_uboot_env_block(env, total_size)
     assert len(env_block) == total_size, f"Env block size mismatch: {len(env_block)} vs {total_size}"
 
     # Verify CRC is correct
@@ -123,6 +169,8 @@ def make_root_rsa_pub_crc(rsa_key):
 
 
 def main():
+    variant = resolve_variant()
+    print(f"[*] Board variant: {variant} (phy_addr={PHY_ADDR_BY_VARIANT[variant]})")
     outdir = os.path.dirname(os.path.abspath(__file__))
     usb_dir = os.path.join(outdir, "usb_boot_files")
     os.makedirs(usb_dir, exist_ok=True)
@@ -154,7 +202,8 @@ def main():
 
     # Create bootargs.bin (raw u-boot env block, no ADVCA header)
     print("\n[*] Creating bootargs.bin...")
-    bootargs = make_bootargs_bin()
+    print(f"    variant={variant}  phy_addr={PHY_ADDR_BY_VARIANT[variant]}")
+    bootargs = make_bootargs_bin(variant=variant)
     bootargs_path = os.path.join(usb_dir, "bootargs.bin")
     with open(bootargs_path, 'wb') as f:
         f.write(bootargs)
