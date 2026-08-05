@@ -67,13 +67,23 @@ if [ -n "$missing" ]; then
     exit 1
 fi
 
-# Singleton.
+# --- Singleton ---------------------------------------------------------------
+# The pidfile lives in /data and therefore survives reboots, while PIDs are
+# handed out from a low number again on every boot.  Checking only that *some*
+# process with that id exists makes a stale pidfile match an unrelated Android
+# service and this script exits without ever starting mirakc — which is exactly
+# what happened on the first boot after autostart was enabled (a stale
+# "pid=2799" matched a live system process).
+#
+# So verify the pid really belongs to this script before believing it.
 if [ -f "$PIDFILE" ]; then
     existing=$(cat "$PIDFILE" 2>/dev/null)
-    if [ -n "$existing" ] && kill -0 "$existing" 2>/dev/null; then
+    if [ -n "$existing" ] && kill -0 "$existing" 2>/dev/null &&
+       tr '\0' ' ' < "/proc/$existing/cmdline" 2>/dev/null | grep -q 'start_mirakc\.sh'; then
         echo "[mirakc] already running (pid=$existing), exiting." >> "$LOG"
         exit 0
     fi
+    # Stale or unrelated — ignore it.
 fi
 echo $$ > "$PIDFILE"
 
