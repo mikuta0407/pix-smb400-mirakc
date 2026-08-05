@@ -15,6 +15,10 @@ boot/usb_boot_files/rsa_key.pem    # same key, copied by make_usb_boot.py
 boot/bootargs.bin
 boot/root_rsa_pub_crc.bin
 boot/initramfs_patched.uimg
+boot/initramfs_new.uimg
+# repack_initramfs.sh の材料として実機から pull したもの
+initramfs_src.uimg
+*.uimg.bak
 boot/usb_boot_files/bootargs.bin
 boot/usb_boot_files/root_rsa_pub_crc.bin
 boot/usb_boot_files/initramfs_patched.uimg
