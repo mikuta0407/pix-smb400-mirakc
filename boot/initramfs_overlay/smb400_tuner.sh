@@ -26,6 +26,14 @@ fi
 
 BINDIR=/data/local/tmp
 
+# tuner-stream-ng (GR) skips tuning when the requested frequency matches the one
+# saved in .tuner_state ("warm start").  Satellite tuning never touches that
+# file, so after BS/BS4K a warm start would hand out the satellite TS still
+# flowing through the TS port as if it were GR.  Invalidate it here.
+case "$CHANNEL" in
+    BS*|4[0-9][0-9][0-9][0-9]) rm -f "$BINDIR/.tuner_state" ;;
+esac
+
 case "$CHANNEL" in
     BS[0-9][0-9]_[0-9])
         # BS (ISDB-S, 従来2K): BSxx_y。xx=トランスポンダ番号で IF を算出。
