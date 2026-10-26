@@ -2,8 +2,9 @@
 #
 # Verified on the real PIX-SMB400 on 2026-08-04.
 # Ported from the device's Mirakurun config
-# (/data/local/tmp/mirakurun/config/{server,tuners,channels}.yml); channels that
-# are `isDisabled: true` there are omitted here.
+# (/data/local/tmp/mirakurun/config/{server,tuners,channels}.yml).  Most BS
+# channels were `isDisabled: true` there; they were added back on 2026-10-26
+# after confirming they receive and descramble.
 #
 # Mirakurun declares one entry per service on the same physical channel;
 # mirakc merges them into a single channel entry with `services: [...]`.
@@ -30,20 +31,49 @@ channels:
     channel: '45328'
 
   # --- BS (ISDB-S, 2K) ---
-  - name: NHK BS
+  # Free-to-air transponders only.  `channel` must be one smb400-tuner.sh has a
+  # TS-ID for.  `services` is left out so the list follows whatever scan-services
+  # finds, since BS services get reshuffled from time to time.
+  # Pay channels (BS03_0 / BS05_0 / BS19_0 / BS21_0 / BS23_0) are omitted: they
+  # cannot be descrambled without a subscription.  Same as the Mirakurun config.
+  - name: BS朝日
     type: BS
-    channel: BS15_0
-    services: [101, 102]
+    channel: BS01_0
+  - name: BS-TBS
+    type: BS
+    channel: BS01_1
+  - name: BSテレ東
+    type: BS
+    channel: BS01_2
   - name: BS11イレブン
     type: BS
     channel: BS09_0
-    services: [211]
+  - name: BS12トゥエルビ
+    type: BS
+    channel: BS09_2
+  - name: BS日テレ
+    type: BS
+    channel: BS13_0
+  - name: BSフジ
+    type: BS
+    channel: BS13_1
+  - name: 放送大学
+    type: BS
+    channel: BS13_2
+  - name: NHK BS
+    type: BS
+    channel: BS15_0
+  - name: BS10
+    type: BS
+    channel: BS15_2
+  - name: BSよしもと
+    type: BS
+    channel: BS23_1
+  - name: J:COM BS
+    type: BS
+    channel: BS23_3
 
   # --- GR (ISDB-T) ---
-  # NOTE: GR does not currently work on this device.  tuner-stream-ng locks the
-  # tuner but DMX_AttachTSPort fails with 0x80150002.  Pre-existing and unrelated
-  # to mirakc.  Left in place so it starts working as soon as that is fixed; the
-  # cost is ~3s per channel wasted on every background job.
   - name: NHK総合
     type: GR
     channel: '27'
@@ -90,10 +120,12 @@ filters:
 jobs:
   # Only one tuner exists, so jobs must not overlap with each other or with
   # viewing: a web viewer preempts a running job (priority 0 vs -1) and the job
-  # then fails with "deadline has elapsed".  Measured durations:
-  #   scan-services    ~53s   (BS4K 5.3s, BS ~19s each, GR ~3s each failing)
-  #   sync-clocks      ~45s   (GR ~13s each failing)
-  #   update-schedules ~65s for the BS4K service
+  # then fails with "deadline has elapsed".  Measured durations with the channel
+  # list above (2026-10-26):
+  #   scan-services    ~3m    (BS ~5-18s each, GR ~4s each)
+  #   sync-clocks      ~2m15s
+  #   update-schedules ~45m   (BS ~3m each, GR and BS4K ~1m each)
+  # update-schedules' timeout applies to each channel, not to the whole job.
   # Note: mirakc also runs every one of these once at startup, regardless of
   # schedule.  Staggered 10 minutes apart in the early morning.
   scan-services:
