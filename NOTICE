@@ -77,3 +77,6 @@ bin/SHA256SUMS.  Full license texts are in LICENSES/.
     Built from src/ in this repository (Apache-2.0, from
     pix-smb400-mirakurun).  Dynamically linked against the device's own
     Android system libraries, which are not redistributed here.
+    The usage text of b61dec (src/b61dec.c and bin/b61dec) is modified from
+    the original: a hard-coded key string was replaced with a placeholder of
+    the same length.  The key is supplied at run time with -key.
