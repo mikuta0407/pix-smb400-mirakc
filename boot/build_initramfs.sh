@@ -97,9 +97,10 @@ docker run --rm \
     -v "$WORK_DIR:/initramfs_work" \
     -v "$(dirname "$OUT"):/out" \
     ubuntu:22.04 bash -c "
+set -e
 apt-get update -qq && apt-get install -y -qq u-boot-tools cpio gzip 2>/dev/null
 cd /initramfs_work
-find . | sort | cpio -o -H newc 2>/dev/null | gzip -9 > /tmp/initramfs_patched.cpio.gz
+find . | sort | cpio -o -H newc --owner=root:root 2>/dev/null | gzip -9 > /tmp/initramfs_patched.cpio.gz
 mkimage -A arm -O linux -T ramdisk -C gzip \
     -a 0x04000000 -e 0x04000000 \
     -n 'patched-initramfs' \
