@@ -25,8 +25,9 @@ mirakc に置き換えて**ある。→ [NOTICE](./NOTICE)
 | BS8K（`45280`、左旋） | **未確認。** 衛星ロックしない（受信設備側の問題と思われる） |
 | EPG / サービススキャン | 動く。BS4K も remux 済み TS から取れる |
 | EPGStation 等 | mirakc は Mirakurun 互換 API を出すのでそのまま繋がる想定 |
+| 長期稼働 | **長期間動かしているとハングすることがあるかも。**原因は未特定（→ [運用上の注意](#運用上の注意)） |
 
-実測（PIX-SMB400 実機、BS4K 33Mbps 受信中）:
+実測（TU-BUHD100 実機、BS4K 33Mbps 受信中）:
 
 | プロセス | CPU（1 コア比） | RSS |
 |---|---|---|
@@ -51,7 +52,7 @@ mirakc に置き換えて**ある。→ [NOTICE](./NOTICE)
 ## 構成
 
 ```
-bin/          armv7 ビルド済みバイナリ（そのまま push できる）
+bin/          armv7 ビルド済みバイナリ（そのまま push できる）。SHA256SUMS 付き
 config/       mirakc の設定（config.yml / strings.yml）
 scripts/      デバイス上で動くシェルスクリプト
 src/          チューナー／デスクランブラの C ソース
@@ -62,6 +63,7 @@ boot/         USB ブート・root 化・initramfs 一式（→ BOOT.md）
   make_usb_boot.py     bootargs.bin / root_rsa_pub_crc.bin（機種差あり）
 tools/dantto4k/  dantto4k を armv7 でビルドし直すための手順とパッチ
 Makefile      デプロイと運用
+LICENSES/     bin/ に同梱したサードパーティのライセンス全文
 ```
 
 ### データの流れ
@@ -191,6 +193,11 @@ echo 2 > /proc/cpu/alignment   # 2 = カーネルがソフトウェアで肩代�
   プロセス非依存なので効く
 - **`tuner_reaper.sh`** が孤児化した `tuner-stream-*` / `tunertest` を回収する
   （判定は `PPID == 1`）。preempt のたびに残骸が出るため
+- **長期間動かしているとハングすることがあるかも。**連続稼働中に、
+  ping も ADB も応答しなくなったことがある。原因は未特定。
+  ネットワークからの死活監視（ICMP と mirakc の `40772/tcp`）を入れておくと気づきやすい。
+  復旧後は `/data/local/tmp/mirakc.log`・`/sys/fs/pstore`・`/proc/last_kmsg` を見ると
+  手がかりが残っているかもしれない
 
 ---
 
@@ -209,8 +216,13 @@ make build-bins      # 実機から bionic の .so を pull してリンクす�
 
 `filters.for-channel-types` / `jobs.for-channel-types`（チャンネル種別ごとに
 コマンドを差し替える機能）を入れた fork が必要。
+同梱の `bin/mirakc` は
+[mikuta0407/mirakc の `feat/for-channel-types`](https://github.com/mikuta0407/mirakc/tree/feat/for-channel-types)
+（`6d1f578a`）からビルドしたもの。
 
 ```sh
+git clone -b feat/for-channel-types https://github.com/mikuta0407/mirakc.git
+cd mirakc
 rustup target add armv7-unknown-linux-musleabihf
 CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER=rust-lld \
 RUSTFLAGS="-C target-feature=+crt-static" \
@@ -242,5 +254,10 @@ qemu 上の armv7 Alpine でネイティブビルドする。**TSDuck 込みで�
 
 ## ライセンス
 
-Apache License 2.0（[LICENSE](./LICENSE)）。
-派生元と同梱バイナリの帰属は [NOTICE](./NOTICE) を参照。
+このリポジトリのスクリプト・ソースは Apache License 2.0（[LICENSE](./LICENSE)）。
+派生元の帰属は [NOTICE](./NOTICE) を参照。
+
+`bin/` の同梱バイナリはそれぞれの上流のライセンスに従う。
+ビルド元のバージョン・コミットとライセンスの対応は [NOTICE](./NOTICE)、全文は [LICENSES/](./LICENSES/)。
+特に **`mirakc-arib` は GPL-2.0-or-later**（公式イメージから無改変で取り出したもの。
+ソースは上流の tag `0.24.20`）。
