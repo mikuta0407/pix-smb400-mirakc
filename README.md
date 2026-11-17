@@ -64,6 +64,7 @@ boot/         USB ブート・root 化・initramfs 一式（→ BOOT.md）
 tools/dantto4k/  dantto4k を armv7 でビルドし直すための手順とパッチ
 Makefile      デプロイと運用
 LICENSES/     bin/ に同梱したサードパーティのライセンス全文
+kit/          配布用キット（USB に入れてインストーラを叩くだけの zip）を作るスクリプト
 ```
 
 ### データの流れ
@@ -87,6 +88,32 @@ BS4K だけ `filters.for-channel-types.BS4K.tuner-filter` に dantto4k を挟む
 
 > **既に Mirakurun 版で動いている筐体を切り替える場合は
 > [MIGRATION.md](./MIGRATION.md) を見ること。**以下は素の筐体からの構築。
+
+### かんたん構築（キット）
+
+公式ファームウェアの `boot.img`（= `kernel.img`）を用意すれば、
+USB ブート用ファイルの作成からインストーラまでを 1 つの zip にまとめられる。
+以下の 1〜5 を手作業でやるのと同じ結果になる。
+
+```sh
+bash kit/build_kit.sh --tu-buhd100 /path/to/boot.img    # PIX-SMB400 なら --pix-smb400
+# → dist/pix-smb400-mirakc-kit-<日付>-<commit>.zip
+```
+
+zip を展開して `README.txt` のとおりに進める。
+
+1. `USB/<機種>/` の 3 ファイルを USB メモリにコピーし、USB ブートで起動する
+2. `install.bat`（Windows）または `install.sh`（Linux）を実行して、IP アドレスを入れる
+
+インストーラは root・機種・initramfs を確認してからファイルを送り、mirakc を起動して
+API が応答するまで待つ。adb が無ければ Google の公式配布を取ってくる。
+ACAS キーは実行時に入力する（キットには入らない）。
+
+`--tu-buhd100` / `--pix-smb400` には `boot.img` のほか、復号済みのアップデート zip、
+取り出し済みの initramfs cpio、USB ブートで動いている `initramfs_patched.uimg` も渡せる。
+必要なもの: Docker, Python 3, cpio, gzip, zip
+
+以下は手作業で構築する場合の手順。
 
 ### 1. root 化と USB ブート
 
@@ -150,6 +177,27 @@ make programs
 | `7f 02` / `7f 03` | 生 TLV（復号は成功しているが remux されていない） |
 | `7f ff` | Null TLV = **復号できていない。**ACAS キーを疑う |
 | 何も出ない | チューナーがロックしていない |
+
+---
+
+## 設定（config.yml）を変える
+
+本体の設定は `/data/local/tmp/mirakc/config.yml`。**initramfs には入っていない**ので、
+`adb push` するだけで再起動後も残る（スクリプト類とは違う）。
+mirakc は設定を自動で読み直さないので、**送ったら再起動する。**
+
+```sh
+# config/config.yml を編集してから
+make push-config
+make restart
+```
+
+本体のものを直接直すなら `adb pull` → 編集 → `adb push` → `make restart`。
+その場合はリポジトリの `config/config.yml` にも反映しておくこと
+（次の `make push-config` で巻き戻さないように）。
+
+- 再起動の瞬間、視聴・録画中のストリームは切れる
+- チャンネルを変えたら、番組表がそろうまでしばらくかかる
 
 ---
 

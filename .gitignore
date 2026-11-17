@@ -41,3 +41,6 @@ __pycache__/
 # ---- OS / editor junk ----
 .DS_Store
 *.swp
+
+# ---- kit/build_kit.sh の出力 ----
+/dist/
