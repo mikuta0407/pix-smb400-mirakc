@@ -38,20 +38,42 @@ patches/node-rs-crc32-index.js, config/{server,tuners,channels}.yml.
 
 Third-party binaries redistributed in bin/:
 
-  * mirakc — https://github.com/mirakc/mirakc (MIT)
-    Built from a fork with per-channel-type filter/job overrides
-    (`filters.for-channel-types`), required for the BS4K remux.
+All binaries are armv7 (32-bit ARM) builds.  SHA-256 checksums are in
+bin/SHA256SUMS.  Full license texts are in LICENSES/.
 
-  * mirakc-arib — https://github.com/mirakc/mirakc-arib (MIT / see project)
-    Taken from the official mirakc/tools:alpine armv7 image.
+  * mirakc
+    https://github.com/mirakc/mirakc -- MIT OR Apache-2.0
+    (LICENSES/MIT-mirakc.txt, LICENSE)
+    Built from the fork https://github.com/mikuta0407/mirakc, branch
+    feat/for-channel-types, commit 6d1f578a7af725ed16044152e5bb3ab956089bd9
+    (adds `filters.for-channel-types` / `jobs.for-channel-types`, required
+    for the BS4K remux).  Statically linked against musl (MIT,
+    LICENSES/MIT-musl.txt) and the Rust crates listed in the fork's
+    Cargo.lock, each under its own license.
 
-  * dantto4k — https://github.com/nekohkr/dantto4k
-    Built for armv7 with the portability patch in tools/dantto4k/.
-    Links TSDuck (https://tsduck.io/, BSD-2-Clause).
+  * mirakc-arib 0.24.20
+    https://github.com/mirakc/mirakc-arib -- GPL-2.0-or-later
+    (LICENSES/GPL-2.0.txt)
+    Unmodified binary taken from the official mirakc/tools:alpine
+    linux/arm/v7 image.  The corresponding source is the upstream tag 0.24.20
+    (commit 28b1bfc2e6f929b721d4c876709860811da1df35), which also pins the
+    statically linked dependencies (LibISDB, aribb24, ...).
+    https://github.com/mirakc/mirakc-arib/tree/0.24.20
+
+  * dantto4k
+    https://github.com/nekohkr/dantto4k -- Apache-2.0 (LICENSE)
+    Built from commit 7d9c7e25e0c398a072b5e328c58f58b062f8a979 with the
+    armv7 portability patch in tools/dantto4k/ (build steps are there too).
+    Statically linked against:
+      - TSDuck (submodule fbbed98, BSD-2-Clause, LICENSES/BSD-2-Clause-TSDuck.txt)
+      - asio (submodule 03ae834, BSL-1.0, LICENSES/BSL-1.0-asio.txt)
+      - zlib 1.3.2 (Zlib, LICENSES/Zlib.txt)
+      - musl (MIT, LICENSES/MIT-musl.txt)
+      - libstdc++ / libgcc (GPL-3.0 with the GCC Runtime Library Exception)
     The ACAS/AES-NI path is stubbed out in this build; it must be run with
     --frontend-descrambled.
 
-  * tuner-stream-*, b21dec, b61dec — built from src/ in this repository
-    (Apache-2.0, from pix-smb400-mirakurun).
-
-See each upstream project for its full license text.
+  * tuner-stream-*, b21dec, b61dec
+    Built from src/ in this repository (Apache-2.0, from
+    pix-smb400-mirakurun).  Dynamically linked against the device's own
+    Android system libraries, which are not redistributed here.
